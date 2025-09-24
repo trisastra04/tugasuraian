@@ -449,7 +449,7 @@
         return orderedAnswers;
     }
 
-    async function showEndScreen(title, message) {
+    async function showEndScreen(title, message, showQuestions = true) {
         document.getElementById('end-title').textContent = title;
         document.getElementById('end-message').textContent = message;
         
@@ -463,15 +463,27 @@
                                   </div>`;
         try {
             const submittedAnswers = await submitAnswers();
-            const answerSummary = originalQuestions.map((q, index) => `
-                <div class="mb-4 text-left">
-                    <p class="font-semibold text-base">${index + 1}. ${q.question}</p>
-                    <p class="text-sm bg-white p-2 rounded border mt-1 whitespace-pre-wrap">${submittedAnswers[index] || "<em>-- Tidak Dijawab --</em>"}</p>
-                </div>
-            `).join('');
+            const answerSummary = originalQuestions.map((q, index) => {
+                if (showQuestions) {
+                    return `
+                    <div class="mb-4 text-left">
+                        <p class="font-semibold text-base">${index + 1}. ${q.question}</p>
+                        <p class="text-sm bg-white p-2 rounded border mt-1 whitespace-pre-wrap">${submittedAnswers[index] || "<em>-- Tidak Dijawab --</em>"}</p>
+                    </div>
+                    `;
+                } else {
+                    return `
+                    <div class="mb-4 text-left">
+                        <p class="text-sm bg-white p-2 rounded border mt-1 whitespace-pre-wrap"><strong>Jawaban untuk soal urutan ke-${index + 1} (sesuai data asli):</strong> ${submittedAnswers[index] || "<em>-- Tidak Dijawab --</em>"}</p>
+                    </div>
+                    `;
+                }
+            }).join('');
+            
+            const summaryTitle = showQuestions ? "Ringkasan Jawaban Anda (Terkirim):" : "Jawaban Anda yang berhasil direkam sebelum tugas dihentikan:";
 
             scoreDisplay.innerHTML = `
-                <p class="font-medium mb-2 text-base">Ringkasan Jawaban Anda (Terkirim):</p>
+                <p class="font-medium mb-2 text-base">${summaryTitle}</p>
                 <div class="max-h-60 overflow-y-auto p-2 text-left">${answerSummary}</div>
             `;
         } catch (error) {
@@ -484,7 +496,7 @@
         examInProgress = false;
         clearInterval(timerInterval);
         const name = studentNameInput.value.trim();
-        showEndScreen("Tugas Terkumpul!", `Terima kasih, ${name}! Jawaban Anda sedang direkam.`);
+        showEndScreen("Tugas Terkumpul!", `Terima kasih, ${name}! Jawaban Anda sedang direkam.`, true);
     }
     
     function terminateExam(reason) {
@@ -492,7 +504,7 @@
         examInProgress = false;
         clearInterval(timerInterval);
         saveAnswer();
-        showEndScreen("Pengerjaan Tugas Dihentikan!", reason);
+        showEndScreen("Pengerjaan Tugas Dihentikan!", reason, false);
     }
 
     function startTimer() {
