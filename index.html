@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Tugas Uraian Anti-Curang</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Gaya tambahan untuk pengalaman yang lebih baik */
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-user-select: none; /* Safari */
+            -ms-user-select: none; /* IE 10+ */
+            user-select: none; /* Standard syntax */
+        }
+        .exam-container {
+            max-width: 800px; /* Lebar diperbesar untuk desktop */
+        }
+        #signature-canvas {
+            border: 2px dashed #ccc;
+            border-radius: 0.5rem;
+            cursor: crosshair;
+        }
+        #score-display .whitespace-pre-wrap {
+             white-space: pre-wrap; /* Ensures line breaks in textarea are preserved */
+        }
+        /* Spinner for loading state */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 4px solid #3498db;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+    <div class="bg-white p-6 sm:p-8 rounded-xl shadow-lg w-full exam-container">
+
+        <!-- 0. Halaman Login -->
+        <div id="login-screen">
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 text-center">Login Siswa</h1>
+            <p class="text-gray-600 text-center mt-2 mb-6">Silakan pilih kelas dan nama Anda untuk melanjutkan.</p>
+            
+            <div id="loading-data" class="flex items-center justify-center p-4">
+                <div class="loader"></div>
+                <p class="ml-4 text-gray-600">Memuat data kelas...</p>
+            </div>
+            
+            <div id="login-form" class="hidden space-y-4">
+                <div>
+                    <label for="class-select" class="block text-sm font-medium text-gray-700 mb-1">Pilih Kelas</label>
+                    <select id="class-select" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="">-- Pilih Kelas --</option>
+                    </select>
+                </div>
+                 
+                <div>
+                    <label for="access-code" class="block text-sm font-medium text-gray-700 mb-1">Masukkan Kode Akses</label>
+                    <input type="password" id="access-code" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="Masukkan kode akses">
+                </div>
+
+                <div id="student-name-container" class="hidden">
+                     <label for="student-select" class="block text-sm font-medium text-gray-700 mb-1">Pilih Nama Siswa</label>
+                    <select id="student-select" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="">-- Pilih Nama Anda --</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="login-date" class="block text-sm font-medium text-gray-700 mb-1">Tanggal</label>
+                    <input type="date" id="login-date" readonly class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100">
+                </div>
+                 <p id="login-error" class="text-red-500 text-sm text-center hidden"></p>
+
+                <button id="login-button" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-300">
+                    Login
+                </button>
+            </div>
+        </div>
+
+        <!-- 1. Halaman Awal (Setelah Login) -->
+        <div id="start-screen" class="hidden">
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 text-center">Tugas Online Uraian</h1>
+            <p class="text-gray-600 text-center mt-2 mb-6">Selamat datang. Silakan baca peraturan di bawah ini sebelum memulai.</p>
+            
+            <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-md mb-6" role="alert">
+                <p class="font-bold">PERINGATAN & PAKTA INTEGRITAS</p>
+                <div class="mt-2 pt-2 border-t border-yellow-400">
+                    <p class="text-sm italic">"Hai orang-orang yang beriman, janganlah kamu mengkhianati Allah dan Rasul (Muhammad) dan (juga) janganlah kamu mengkhianati amanat-amanat yang dipercayakan kepadamu, sedang kamu mengetahui."</p>
+                    <p class="text-sm font-semibold text-right">- QS. Al-Anfal: 27 -</p>
+                </div>
+            </div>
+            
+            <div class="mb-4">
+                <label for="student-name" class="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
+                <input type="text" id="student-name" readonly class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-100">
+            </div>
+
+            <div class="mb-6">
+                 <label class="block text-sm font-medium text-gray-700 mb-1">Pakta Integritas</label>
+                 <p class="text-xs text-gray-500 mb-2 text-center">Saya berjanji akan mengerjakan tugas ini dengan jujur. Silakan tanda tangan di kotak bawah ini.</p>
+                 <div class="flex justify-center">
+                    <canvas id="signature-canvas" width="400" height="150"></canvas>
+                 </div>
+            </div>
+
+            <button id="start-button" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-300">
+                Mulai Tugas
+            </button>
+        </div>
+
+        <!-- 2. Halaman Pengerjaan Tugas -->
+        <div id="exam-screen" class="hidden">
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-800">Soal Tugas Uraian</h2>
+                    <p id="student-name-display" class="text-sm text-gray-600"></p>
+                </div>
+                <div class="text-right">
+                     <p class="text-sm text-gray-600">Sisa Waktu</p>
+                     <div id="timer" class="text-xl font-bold text-red-600">60:00</div>
+                </div>
+            </div>
+
+            <div class="bg-gray-50 p-6 rounded-lg border">
+                <div id="question-container">
+                    <!-- Soal uraian akan dimuat di sini oleh JavaScript -->
+                </div>
+            </div>
+
+            <div class="flex justify-between mt-6">
+                <button id="prev-button" class="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-md hover:bg-gray-400">Sebelumnya</button>
+                <button id="next-button" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-md hover:bg-indigo-700">Selanjutnya</button>
+                <button id="finish-button" class="bg-green-600 text-white font-bold py-2 px-6 rounded-md hover:bg-green-700 hidden">Kumpulkan Tugas</button>
+            </div>
+        </div>
+        
+        <!-- 3. Halaman Selesai -->
+        <div id="end-screen" class="hidden text-center">
+             <h1 id="end-title" class="text-3xl font-bold text-gray-800 mb-4">Tugas Selesai!</h1>
+             <p id="end-message" class="text-gray-600 mb-6">Terima kasih telah menyelesaikan tugas.</p>
+             <div id="score-display" class="text-xl p-4 bg-gray-100 rounded-lg">
+                <!-- Ringkasan Jawaban akan ditampilkan di sini -->
+             </div>
+        </div>
+
+    </div>
+
+    <script>
+    // --- PENTING: URL Web App dari Google Apps Script Anda ---
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzfsm6be6g97n3VynB2gEXLmYWHoFrNY2oehaSoc7KEFs13FSLNzQyBOzU4K9gWQpZ3/exec';
+
+    // --- VARIABEL GLOBAL & SELEKTOR DOM ---
+    const loginScreen = document.getElementById('login-screen');
+    const startScreen = document.getElementById('start-screen');
+    const examScreen = document.getElementById('exam-screen');
+    const endScreen = document.getElementById('end-screen');
+    
+    // Login elements
+    const loginForm = document.getElementById('login-form');
+    const loadingData = document.getElementById('loading-data');
+    const classSelect = document.getElementById('class-select');
+    const studentSelect = document.getElementById('student-select');
+    const studentNameContainer = document.getElementById('student-name-container');
+    const accessCodeInput = document.getElementById('access-code');
+    const loginDateInput = document.getElementById('login-date');
+    const loginButton = document.getElementById('login-button');
+    const loginError = document.getElementById('login-error');
+
+    // Start screen elements
+    const startButton = document.getElementById('start-button');
+    const studentNameInput = document.getElementById('student-name');
+    const studentNameDisplay = document.getElementById('student-name-display');
+
+    // Exam screen elements
+    const questionContainer = document.getElementById('question-container');
+    const prevButton = document.getElementById('prev-button');
+    const nextButton = document.getElementById('next-button');
+    const finishButton = document.getElementById('finish-button');
+    const timerDisplay = document.getElementById('timer');
+
+    // Canvas elements
+    const canvas = document.getElementById('signature-canvas');
+    const ctx = canvas.getContext('2d');
+    let isDrawing = false;
+    let hasSigned = false;
+
+    // State variables
+    let questions = []; // Akan berisi soal yang sudah diacak
+    let originalQuestions = []; // Menyimpan urutan soal asli
+    let currentQuestionIndex = 0;
+    let userAnswers = []; 
+    let timerInterval;
+    const totalTime = 60 * 60; // 60 menit
+    let timeLeft = totalTime; 
+    let examInProgress = false;
+    let studentData = {};
+    let accessCodeData = {};
+    let questionData = {};
+
+    // --- LOGIKA UTAMA ---
+
+    // Fungsi untuk mengambil data CSV siswa
+    async function fetchStudentData() {
+        const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTeyHOEyBQdLBo1QxNMdUsIYCw6VZjLXDGvXV-5LPGPbz7GtEwbEgtSf7s-YcepUL6ndnjA4BwWmx9v/pub?gid=0&single=true&output=csv';
+        const response = await fetch(csvUrl);
+        if (!response.ok) throw new Error('Gagal mengambil data siswa.');
+        const csvText = await response.text();
+        
+        const lines = csvText.trim().split('\n');
+        const headers = lines[0].split(',').map(h => h.trim());
+        
+        headers.forEach(header => studentData[header] = []);
+
+        for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(',').map(v => v.trim());
+            headers.forEach((header, index) => {
+                if (values[index] && values[index] !== "") {
+                    studentData[header].push(values[index]);
+                }
+            });
+        }
+    }
+    
+    // Fungsi untuk mengambil data kode akses
+    async function fetchAccessCodes() {
+        const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTeyHOEyBQdLBo1QxNMdUsIYCw6VZjLXDGvXV-5LPGPbz7GtEwbEgtSf7s-YcepUL6ndnjA4BwWmx9v/pub?gid=1462040867&single=true&output=csv';
+        const response = await fetch(csvUrl);
+        if (!response.ok) throw new Error('Gagal mengambil data kode akses.');
+        const csvText = await response.text();
+
+        const lines = csvText.trim().split('\n');
+        const headers = lines[0].split(',').map(h => h.trim());
+        const codes = lines[1].split(',').map(c => c.trim());
+
+        headers.forEach((header, index) => {
+            if (codes[index]) {
+                accessCodeData[header] = codes[index];
+            }
+        });
+    }
+
+    // Fungsi untuk mengambil data soal
+    async function fetchQuestions() {
+        const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTeyHOEyBQdLBo1QxNMdUsIYCw6VZjLXDGvXV-5LPGPbz7GtEwbEgtSf7s-YcepUL6ndnjA4BwWmx9v/pub?gid=1449470800&single=true&output=csv';
+        const response = await fetch(csvUrl);
+        if (!response.ok) throw new Error('Gagal mengambil data soal.');
+        const csvText = await response.text();
+
+        const lines = csvText.trim().split('\n');
+        const headers = lines[0].split(',').map(h => h.trim());
+
+        headers.forEach(header => questionData[header] = []);
+
+        for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(',').map(v => v.trim().replace(/"/g, '')); // Hapus kutip jika ada
+            headers.forEach((header, index) => {
+                if (values[index] && values[index] !== "") {
+                    questionData[header].push(values[index]);
+                }
+            });
+        }
+    }
+
+    // Mengisi dropdown kelas
+    function populateClassSelect() {
+        Object.keys(studentData).forEach(className => {
+            const option = document.createElement('option');
+            option.value = className;
+            option.textContent = className;
+            classSelect.appendChild(option);
+        });
+    }
+    
+    classSelect.addEventListener('change', () => {
+        studentNameContainer.classList.add('hidden');
+        studentSelect.innerHTML = '<option value="">-- Pilih Nama Anda --</option>';
+        loginError.classList.add('hidden');
+        accessCodeInput.value = '';
+    });
+    
+    function validateAccessCodeAndShowNames() {
+        const selectedClass = classSelect.value;
+        const enteredCode = accessCodeInput.value.trim();
+        loginError.classList.add('hidden');
+        if (!selectedClass || !enteredCode) {
+            studentNameContainer.classList.add('hidden');
+            return;
+        }
+        const correctCode = accessCodeData[selectedClass];
+        if (correctCode && enteredCode === correctCode) {
+            studentSelect.innerHTML = '<option value="">-- Pilih Nama Anda --</option>';
+            studentData[selectedClass].forEach(studentName => {
+                const option = document.createElement('option');
+                option.value = studentName;
+                option.textContent = studentName;
+                studentSelect.appendChild(option);
+            });
+            studentNameContainer.classList.remove('hidden');
+        } else {
+            studentNameContainer.classList.add('hidden');
+            if (enteredCode.length >= (correctCode?.length || 1) ) {
+                 loginError.textContent = 'Kode Akses salah.';
+                 loginError.classList.remove('hidden');
+            }
+        }
+    }
+    accessCodeInput.addEventListener('input', validateAccessCodeAndShowNames);
+
+    loginButton.addEventListener('click', () => {
+        const selectedClass = classSelect.value;
+        const selectedStudent = studentSelect.value;
+        const accessCode = accessCodeInput.value.trim();
+        loginError.classList.add('hidden');
+        if (!selectedClass) { loginError.textContent = 'Silakan pilih kelas Anda.'; loginError.classList.remove('hidden'); return; }
+        if (!accessCode) { loginError.textContent = 'Silakan masukkan kode akses.'; loginError.classList.remove('hidden'); return; }
+        const correctCode = accessCodeData[selectedClass];
+        if (!correctCode || accessCode !== correctCode) { loginError.textContent = 'Kode Akses salah. Silakan coba lagi.'; loginError.classList.remove('hidden'); return; }
+        if (!selectedStudent) { loginError.textContent = 'Silakan pilih nama Anda.'; loginError.classList.remove('hidden'); return; }
+        
+        studentNameInput.value = selectedStudent;
+        loginScreen.classList.add('hidden');
+        startScreen.classList.remove('hidden');
+    });
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden && examInProgress) {
+            terminateExam("Pengerjaan Tugas Dihentikan Karena Meninggalkan Halaman");
+        }
+    });
+
+    startButton.addEventListener('click', () => {
+        const name = studentNameInput.value.trim();
+        if (!hasSigned) { alert("Silakan tanda tangan pada pakta integritas."); return; }
+        studentNameDisplay.textContent = `Peserta: ${name}`;
+        startExam();
+    });
+
+    // Fungsi untuk mengacak array (Fisher-Yates shuffle)
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+    }
+
+    function startExam() {
+        const selectedClass = classSelect.value;
+        originalQuestions = (questionData[selectedClass] || []).map(qText => ({ question: qText }));
+
+        if (originalQuestions.length === 0) {
+            alert("Tidak ada soal yang ditemukan untuk kelas ini. Silakan hubungi guru Anda.");
+            location.reload();
+            return;
+        }
+
+        // Buat array soal yang akan diacak, simpan index aslinya
+        questions = originalQuestions.map((q, index) => ({
+            ...q,
+            originalIndex: index
+        }));
+        shuffleArray(questions);
+        
+        userAnswers = new Array(questions.length).fill("");
+        examInProgress = true;
+        startScreen.classList.add('hidden');
+        examScreen.classList.remove('hidden');
+        displayQuestion(currentQuestionIndex);
+        startTimer();
+    }
+    
+    function displayQuestion(index) {
+        const q = questions[index];
+        const savedAnswer = userAnswers[index] || "";
+        questionContainer.innerHTML = `
+            <p class="text-lg font-medium mb-4">(${index + 1}/${questions.length}) ${q.question}</p>
+            <div>
+                <textarea id="essay-answer" class="w-full h-48 sm:h-64 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ketik jawaban Anda di sini...">${savedAnswer}</textarea>
+            </div>
+        `;
+        updateNavigationButtons();
+    }
+    
+    function updateNavigationButtons() {
+        prevButton.disabled = currentQuestionIndex === 0;
+        prevButton.classList.toggle('opacity-50', prevButton.disabled);
+        if (currentQuestionIndex === questions.length - 1) {
+            nextButton.classList.add('hidden');
+            finishButton.classList.remove('hidden');
+        } else {
+            nextButton.classList.remove('hidden');
+            finishButton.classList.add('hidden');
+        }
+    }
+
+    function saveAnswer() {
+        const essayInput = document.getElementById('essay-answer');
+        if (essayInput) { userAnswers[currentQuestionIndex] = essayInput.value; }
+    }
+
+    nextButton.addEventListener('click', () => { saveAnswer(); currentQuestionIndex++; displayQuestion(currentQuestionIndex); });
+    prevButton.addEventListener('click', () => { saveAnswer(); currentQuestionIndex--; displayQuestion(currentQuestionIndex); });
+    finishButton.addEventListener('click', () => {
+        saveAnswer();
+        const confirmation = confirm("Apakah Anda yakin ingin mengumpulkan tugas ini?");
+        if(confirmation){ finishExam(); }
+    });
+    
+    async function submitAnswers() {
+        const name = studentNameInput.value.trim();
+        const selectedClass = classSelect.value;
+        const timeSpent = totalTime - timeLeft;
+        const minutes = Math.floor(timeSpent / 60);
+        const seconds = timeSpent % 60;
+        const duration = `${minutes} menit ${seconds} detik`;
+
+        // Mengurutkan kembali jawaban sesuai urutan soal asli
+        const orderedAnswers = new Array(originalQuestions.length).fill("");
+        questions.forEach((q, i) => {
+            orderedAnswers[q.originalIndex] = userAnswers[i] || "";
+        });
+
+        const formData = {
+            timestamp: new Date().toISOString(),
+            nama: name,
+            kelas: selectedClass,
+            lamaWaktuPengerjaan: duration,
+            jawaban: orderedAnswers
+        };
+
+        const response = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors', // Penting untuk request ke Apps Script
+            cache: 'no-cache',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+        
+        return orderedAnswers;
+    }
+
+    async function showEndScreen(title, message) {
+        document.getElementById('end-title').textContent = title;
+        document.getElementById('end-message').textContent = message;
+        
+        examScreen.classList.add('hidden');
+        endScreen.classList.remove('hidden');
+
+        const scoreDisplay = document.getElementById('score-display');
+        scoreDisplay.innerHTML = `<div class="flex items-center justify-center p-4">
+                                    <div class="loader"></div>
+                                    <p class="ml-4 text-gray-600">Mengirim jawaban...</p>
+                                  </div>`;
+        try {
+            const submittedAnswers = await submitAnswers();
+            const answerSummary = originalQuestions.map((q, index) => `
+                <div class="mb-4 text-left">
+                    <p class="font-semibold text-base">${index + 1}. ${q.question}</p>
+                    <p class="text-sm bg-white p-2 rounded border mt-1 whitespace-pre-wrap">${submittedAnswers[index] || "<em>-- Tidak Dijawab --</em>"}</p>
+                </div>
+            `).join('');
+
+            scoreDisplay.innerHTML = `
+                <p class="font-medium mb-2 text-base">Ringkasan Jawaban Anda (Terkirim):</p>
+                <div class="max-h-60 overflow-y-auto p-2 text-left">${answerSummary}</div>
+            `;
+        } catch (error) {
+            scoreDisplay.innerHTML = `<p class="text-red-500 font-bold">Gagal Mengirim Jawaban!</p><p class="text-sm text-gray-600 mt-2">Terjadi masalah saat mengirim jawaban Anda. Periksa koneksi internet Anda atau hubungi guru.</p>`;
+        }
+    }
+
+    function finishExam() {
+        if (!examInProgress) return;
+        examInProgress = false;
+        clearInterval(timerInterval);
+        const name = studentNameInput.value.trim();
+        showEndScreen("Tugas Terkumpul!", `Terima kasih, ${name}! Jawaban Anda sedang direkam.`);
+    }
+    
+    function terminateExam(reason) {
+        if (!examInProgress) return;
+        examInProgress = false;
+        clearInterval(timerInterval);
+        saveAnswer();
+        showEndScreen("Pengerjaan Tugas Dihentikan!", reason);
+    }
+
+    function startTimer() {
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+            if (timeLeft <= 0) {
+                terminateExam("Waktu Habis");
+            }
+        }, 1000);
+    }
+    
+    function getMousePos(canvasDom, mouseEvent) {
+        var rect = canvasDom.getBoundingClientRect();
+        return { x: mouseEvent.clientX - rect.left, y: mouseEvent.clientY - rect.top };
+    }
+
+    function drawLine(x1, y1, x2, y2) {
+        ctx.beginPath(); ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
+        ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.closePath();
+    }
+    
+    let lastPos;
+    canvas.addEventListener('mousedown', (e) => { isDrawing = true; hasSigned = true; lastPos = getMousePos(canvas, e); });
+    canvas.addEventListener('mouseup', () => { isDrawing = false; });
+    canvas.addEventListener('mousemove', (e) => { if (!isDrawing) return; const currentPos = getMousePos(canvas, e); drawLine(lastPos.x, lastPos.y, currentPos.x, currentPos.y); lastPos = currentPos; });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        loginDateInput.value = `${yyyy}-${mm}-${dd}`;
+        
+        Promise.all([fetchStudentData(), fetchAccessCodes(), fetchQuestions()])
+            .then(() => {
+                populateClassSelect();
+                loadingData.classList.add('hidden');
+                loginForm.classList.remove('hidden');
+            })
+            .catch(error => {
+                loadingData.innerHTML = `<p class="text-red-500">Gagal memuat data. Pastikan link Google Sheet benar dan bisa diakses publik. Silakan muat ulang halaman.</p>`;
+                console.error('Initialization error:', error);
+            });
+    });
+    
+    </script>
+
+</body>
+</html>
+
